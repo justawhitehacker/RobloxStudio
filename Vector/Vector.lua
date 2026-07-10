@@ -213,14 +213,14 @@ end
 
 function module:BinarySearch(data, index_left, index_right)
 	assert(typeof(index_left) == "number" and typeof(index_right) == "number", "One of the indexes (maybe both) is/are not a number")
+	
 	if self.___type ~= nil and typeof(data) ~= self.___type then return nil end
 	if self.___length == 0 then return nil end
+		
+	index_left = index_left and math.floor(index_left) or 1
+	index_right = index_right and math.floor(index_right) or self.___length
 	
 	if index_left < 1 or index_right > self.___length then return nil end
-	
-	index_left = math.floor(index_left or 1)
-	index_right = math.floor(index_right or self.___length)
-	
 	if index_left > index_right then return nil end
 	
 	while index_left <= index_right do
@@ -450,11 +450,11 @@ local function __heapify(self, from, size, index)
 	
 	local heapEnd = from + size - 1
 	
-	if left < heapEnd and self.___items[left] > self.___items[idx] then
+	if left <= heapEnd and self.___items[left] > self.___items[idx] then
 		idx = left
 	end
 	
-	if right < heapEnd and self.___items[right] > self.___items[idx] then
+	if right <= heapEnd and self.___items[right] > self.___items[idx] then
 		idx = right
 	end
 	
@@ -474,7 +474,7 @@ local function __heapsort(self, from, to)
 	end
 	
 	for i = range - 1, 1, -1 do
-		self:Swap(from, from + 1)
+		self:Swap(from, from + i)
 		
 		__heapify(self, from, i, from)
 	end
@@ -528,7 +528,7 @@ local function __introsort(self, arr, left, right, dl)
 	end
 	
 	if dl == 0 then
-		__heapsort(arr, left, right)
+		__heapsort(self, left, right)
 		return
 	end
 	
@@ -543,11 +543,12 @@ end
 
 function module:Sort(begin, last, rebuildIndex)
 	if self.___type ~= "number" then return end
-	if begin < 1 or last > self.___length then return end
 	
 	rebuildIndex = rebuildIndex or false
-	begin = begin or 1
-	last = last or self:Length()
+	begin = begin and math.floor(begin) or 1
+	last = last and math.floor(last) or self:Length()
+	
+	if begin < 1 or last > self.___length then return end
 	
 	if self.___length > 1 then
 		__introsort(self, self.___items, begin, last, math.floor(2 * math.log(self.___length, 2)))
