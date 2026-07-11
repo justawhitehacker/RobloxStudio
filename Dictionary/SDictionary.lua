@@ -1,7 +1,105 @@
 local SDictionary = {}
 SDictionary.__index = SDictionary
 
-function SDictionary.new(TKey, TValue, array)
+--[[
+Example:
+
+	local Dictionary = SDictionary.new("string", "string")
+	Dictionary:Add("Key", "Value")
+	
+	print(Dictionary:Get("Key")) -- Prints "Value"
+	
+	You can follow this method for a complex and advanced example:
+	
+	local Players = game:GetService("Players")
+	local MAX_PLAYERS = 20
+	local UP_INTERVAL = 25
+	
+	local timestamp = SDictionary.new("number", "table")
+	
+	Players.PlayerAdded:Connect(function(Player)
+		local id = Player.UserId
+		
+		timestamp:Add(id, {
+			["JoinedTime"] = tick(),
+			["LifeTime"] = tick()
+			["LeftTime"] = 0,
+			["Name"] = Player.Name
+		})
+		
+		task.spawn(function()
+			while Player do
+				timestamp:At(id).LifeTime = tick()
+				task.wait(1)
+			end
+		end)
+	end)
+	
+	Players.PlayerRemoving:Connect(function(Player)
+		timestamp:At(id).LeftTime = tick()
+	end)
+	
+	task.spawn(function()
+		while true do
+			timestamp:RemoveIf(function(key, value)
+				return timestamp:Length() > MAX_PLAYERS and value.LeftTime > 0
+			end)
+			
+			task.wait(UP_INTERVAL)
+		end
+	end)
+--]]
+
+export type SDictionaryInsertion = boolean | (() -> ())
+
+export type TKey = any
+export type TValue = any
+export type SArray = {[TKey] : TValue}
+
+export type SDictionary = 
+{
+	Add: (self: SDictionary, Key: TKey, Value: TValue) -> SDictionaryInsertion,
+	Set: (self: SDictionary, Key: TKey, Value: TValue) -> SDictionaryInsertion,
+	Remove: (self: SDictionary, Key: TKey) -> SDictionaryInsertion,
+	
+	Get: (self: SDictionary, Key: TKey) -> TValue,
+	GetKey: (self: SDictionary, Value: TValue) -> TKey,
+	
+	Find: (self: SDictionary, Value: TValue) -> boolean,
+	
+	Clear: (self: SDictionary) -> (),
+	
+	ContainsKey: (self: SDictionary, Key: TKey) -> boolean,
+	ContainsValue: (self: SDictionary, Value: TValue, DuplicateCounts: number?) -> boolean,
+	
+	Keys: (self: SDictionary) -> { TKey },
+	Values: (self: SDictionary) -> { TValue },
+	
+	Iterator: (self: SDictionary) -> { [TKey]: TValue },
+	
+	Length: (self: SDictionary) -> number,
+	
+	IsEmpty: (self: SDictionary) -> boolean,
+	
+	At: (self: SDictionary, Key: TKey) -> TValue,
+	
+	RemoveIf: (self: SDictionary) -> (Key: TKey, Value: TValue) -> number,
+	
+	Swap: (self: SDictionary, Key1: TKey, Key2: TKey) -> SDictionaryInsertion,
+	
+	Copy: (self: SDictionary) -> SDictionary,
+	
+	Paste: (self: SDictionary, Dictionary: SDictionary) -> (),
+	
+	__iter: (self: SDictionary) -> { [TKey]: TValue }
+}
+
+export type SDictionaryInit =
+{
+	new: (TKey: TKey, TValue: TValue, Array: SArray?) -> SDictionary,		
+}
+
+function SDictionary.new(TKey : TKey, TValue : TValue, array : SArray) : SDictionary
 	local self = setmetatable({}, SDictionary)
 	self.___keyType = TKey
 	self.___valueType = TValue
@@ -14,10 +112,10 @@ function SDictionary.new(TKey, TValue, array)
 		end
 	end
 	
-	return self
+	return self :: SDictionary
 end
 
-function SDictionary:Add(key, value)
+function SDictionary:Add(key : TKey, value : TValue)
 	assert(typeof(key) == self.___keyType, "Key must be a " .. self.___keyType)
 	assert(typeof(value) == self.___valueType, "Value must be a " .. self.___valueType)
 	
@@ -26,7 +124,7 @@ function SDictionary:Add(key, value)
 	self.___items[key] = value
 	self.___length += 1
 	
-	return true
+	return true :: SDictionaryInsertion
 end
 
 function SDictionary:Set(key, value)
@@ -39,7 +137,7 @@ function SDictionary:Set(key, value)
 	
 	self.___items[key] = value
 	
-	return true
+	return true :: SDictionaryInsertion
 end
 
 function SDictionary:Remove(key)
@@ -50,7 +148,7 @@ function SDictionary:Remove(key)
 	self.___items[key] = nil
 	self.___length -= 1
 	
-	return true
+	return true :: SDictionaryInsertion
 end
 
 function SDictionary:Get(key)
@@ -142,18 +240,51 @@ function SDictionary:RemoveIf(predicate)
 	assert(typeof(predicate) == "function", "Predicate must be a function")
 	
 	local removed = 0
+	local markedKeys = {}
+	
 	for key, value in pairs(self.___items) do
 		if predicate(key, value) then
-			self:Remove(key)
+			table.insert(markedKeys, key)
 			removed += 1
 		end
 	end
 	
+	for i = 1, #markedKeys do
+		local key = markedKeys[i]
+		self.___items[key] = nil
+	end
+	
+	self.___length -= removed
+	
+	table.clear(markedKeys)
+	markedKeys = nil
+	
 	return removed
+end
+
+function SDictionary:Swap(key1, key2)
+	assert(typeof(key1) == self.___keyType, "Key1 must be a " .. self.___keyType)
+	assert(typeof(key2) == self.___keyType, "Key2 must be a " .. self.___keyType)
+	
+	self.___items[key1], self.___items[key2] = self.___items[key2], self.___items[key1]
+	
+	return true :: SDictionaryInsertion
+end
+
+function SDictionary:Copy(): SDictionary
+	local copy = SDictionary.new(self.___keyType, self.___valueType, self.___items)
+	
+	return copy :: SDictionary
+end
+
+function SDictionary:Paste(sdictionary: SDictionary)
+	assert(typeof(sdictionary) == "table", "sdictionary must be a SDictionary")
+	
+	sdictionary = SDictionary.new(self.___keyType, self.___valueType, self.___items)
 end
 
 SDictionary.__iter = function(self)
 	return self:Iterator()
 end
 
-return SDictionary
+return SDictionary :: SDictionaryInit
